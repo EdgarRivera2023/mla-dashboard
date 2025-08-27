@@ -1,5 +1,5 @@
-import "./globals.css";
-import Providers from "./components/Providers"; // 1. IMPORT our provider
+import "./globals.css"; // This is the crucial line
+import Providers from "./components/Providers";
 
 export const metadata = {
   title: "MLA Dashboard",
@@ -10,7 +10,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <Providers> {/* 2. WRAP the children */}
+        <Providers>
           {children}
         </Providers>
       </body>
