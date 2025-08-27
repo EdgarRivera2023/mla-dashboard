@@ -2,8 +2,8 @@
 
 ## Phase 1: Podio-Powered Front-End
 - [X] Design a Basic App Layout
-- [ ] Implement User Logout
-- [ ] Build the Main Dashboard Page
+- [X] Implement User Logout
+- [X] Build the Main Dashboard Page
 - [ ] Create "List View" for a Core Item (e.g., Clients)
 - [ ] Create "Detail View" for a single item
 - [ ] Build "New Item" Form
