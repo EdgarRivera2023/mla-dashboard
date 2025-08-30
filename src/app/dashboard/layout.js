@@ -4,6 +4,9 @@ import SignOutButton from "../components/SignOutButton";
 
 export default async function DashboardLayout({ children }) {
   const session = await getServerSession(authOptions);
+  
+  // --- 3. DASHBOARD LAYOUT ---
+  console.log("Final session on page load:", session);
 
   return (
     <section className="flex h-screen bg-gray-100 font-sans">
@@ -13,13 +16,24 @@ export default async function DashboardLayout({ children }) {
         <nav>
           <ul>
             <li className="mb-2">
-              <a href="/dashboard" className="block rounded bg-gray-700 py-2 px-3">Dashboard</a>
+              <a href="/dashboard" className="block rounded py-2 px-3 hover:bg-gray-700">Dashboard</a>
             </li>
-            {/* More links will go here */}
+            <li className="mb-2">
+              <a href="/dashboard/casos" className="block rounded py-2 px-3 hover:bg-gray-700">Casos</a>
+            </li>
+
+            {/* Admin-only link */}
+            {session?.user?.role === 'admin' && (
+              <li className="mb-2">
+                <a href="/dashboard/admin" className="block rounded py-2 px-3 text-yellow-400 hover:bg-gray-700">
+                  Admin Panel
+                </a>
+              </li>
+            )}
           </ul>
         </nav>
 
-        {/* User Info & Sign Out Button at the bottom */}
+        {/* User Info & Sign Out Button */}
         <div className="absolute bottom-6 left-6 right-6">
           <div className="mb-4 border-t border-gray-700"></div>
           <p className="mb-1 truncate text-sm font-medium">{session?.user?.name}</p>

@@ -4,30 +4,46 @@ import CredentialsProvider from "next-auth/providers/credentials";
 export const authOptions = {
   providers: [
     CredentialsProvider({
-      // The name to display on the sign in form (e.g. "Sign in with...")
       name: "Credentials",
-      // The credentials is used to generate a suitable form on the sign-in page.
       credentials: {
-        username: { label: "Username", type: "text", placeholder: "admin" },
-        password: { label: "Password", type: "password", placeholder: "password" }
+        username: { label: "Username", type: "text" },
+        password: { label: "Password", type: "password" }
       },
       async authorize(credentials, req) {
-        // This is a temporary, "hardcoded" user for testing purposes.
-        // Later, we will replace this with a real database lookup.
-        const testUser = { id: "1", name: "Admin", email: "admin@example.com" };
+        const testUser = { 
+          id: "1", 
+          name: "Admin", 
+          email: "edgar.asistente.medina@gmail.com"
+        };
 
         if (credentials?.username === "admin" && credentials?.password === "password") {
-          // If the login details are correct, return the user object.
           return testUser;
         } else {
-          // If the login details are incorrect, return null.
           return null;
         }
       }
     })
   ],
   pages: {
-    signIn: '/login'
+    signIn: '/login',
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        if (user.email === 'edgar.asistente.medina@gmail.com') {
+          token.role = 'admin';
+        } else {
+          token.role = 'user';
+        }
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session?.user) {
+        session.user.role = token.role;
+      }
+      return session;
+    },
   }
 };
 

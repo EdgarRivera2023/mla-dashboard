@@ -32,6 +32,7 @@ _Goal: Build a complete, user-friendly interface on top of Podio that the team c
 
 ### User Experience
 - [ ] Improve user feedback (loading spinners, success/error pop-up notifications).
+- [ ] Implement SmrtPhone Click-to-Call (via Chrome Extension and `tel:` links).
 
 ---
 
