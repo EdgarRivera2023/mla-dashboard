@@ -5,7 +5,6 @@ import { useSession, signIn, signOut } from "next-auth/react"
 export default function HomePage() {
   const { data: session } = useSession()
 
-  // If the user is signed in, show a welcome message and a sign-out button
   if (session) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center">
@@ -22,7 +21,6 @@ export default function HomePage() {
     )
   }
 
-  // If the user is not signed in, show the sign-in button
   return (
     <main className="flex min-h-screen flex-col items-center justify-center">
       <h1 className="text-4xl font-bold">
@@ -32,7 +30,7 @@ export default function HomePage() {
         Please sign in to continue.
       </p>
       <button 
-        onClick={() => signIn()} 
+        onClick={() => signIn(undefined, { callbackUrl: '/dashboard' })} // <-- Change is here
         className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-white"
       >
         Sign In

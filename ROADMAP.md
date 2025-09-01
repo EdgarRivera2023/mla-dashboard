@@ -17,17 +17,18 @@ _Goal: Build a complete, user-friendly interface on top of Podio that the team c
 
 ### Dashboard Functionality
 - [x] Build the Main Dashboard Page (Initial version).
-- [ ] Redesign the Dashboard page to have a tabbed interface (User Tabs + Admin Master Tab).
-- [ ] Create a backend API route to fetch a user's specific "Views" from Podio.
-- [ ] Build the two-panel dashboard layout (Views list on left, Item table on right).
-- [ ] Create a backend API route to fetch the items that belong to a selected View.
+- [ ] Redesign Dashboard UI with a two-panel layout (Views list on left, Item table on right).
+- [ ] Hardcode 3-5 essential 'Views' as a starting point.
+- [ ] Create an API route to fetch items for a selected hardcoded 'View'.
 
 ### CRUD Functionality
+- [ ] Add all remaining 'Casos' fields to the Create and Edit forms.
 - [x] Create "List View" for all 'Casos'.
-- [x] Create "Detail View" for a single 'Caso'.
-- [x] Build "New Item" Form.
-- [x] Build "Edit Item" Form.
+- [x] Create "Detail View" for a single 'Caso'. (File can be deleted)
+- [x] Build "New Item" Form. (Initial version)
+- [x] Build "Edit Item" Form. (Initial version)
 - [x] Develop Podio API Handlers for all CRUD actions.
+- [ ] Fix data formatting for Money, Category, and Reference fields in API handlers.
 - [ ] Add a search bar to the "List View".
 
 ### User Experience

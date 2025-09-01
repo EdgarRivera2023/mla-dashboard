@@ -64,10 +64,22 @@ export async function POST(request) {
     const podioData = {
       fields: {
         // IMPORTANT: Replace these with your actual external_ids from Podio
-        'title': body.title, 
-        'nombre-demandados': body.demandado,
+        'title': body.title,
+        'proyecto': body.proyecto,
+        'estatus-de-record': body.estatusDeRecord,
         'fecha-demanda': {
           start_date: body.fechaDemanda, // Podio expects date objects
+        'demandante': body.demandante,
+        'tipo-de-emplazamiento': body.tipoDeEmplazamiento,
+        'nombre-demandados': body.nombreDemandados,
+        'propiedad': body.propiedad,
+        'pueblo-2': body.pueblo2,
+        'finca': body.finca,
+        'pagare-original': body.pagareOriginal,
+        'fecha-pagare-original': {
+          start_date: body.fechaPagareOriginal,
+        },
+        'cuantia-demanda': body.cuantiaDemanda,
         },
       }
     };

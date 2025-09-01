@@ -88,3 +88,30 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: 'Failed to update item in Podio.', details: error.message }, { status: 500 });
   }
 }
+// ... your existing getAccessToken, GET, and PUT functions are above this ...
+
+export async function DELETE(request, { params }) {
+  const { caseId } = params;
+  const accessToken = await getAccessToken();
+
+  try {
+    const response = await fetch(`https://api.podio.com/item/${caseId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `OAuth2 ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Podio API Error: ${JSON.stringify(errorData)}`);
+    }
+    
+    // A successful DELETE in Podio returns no content, so we just return our own success message.
+    return NextResponse.json({ status: 'success', message: 'Item deleted successfully.' });
+
+  } catch (error) {
+    console.error('Podio Delete Item Error:', error);
+    return NextResponse.json({ error: 'Failed to delete item in Podio.', details: error.message }, { status: 500 });
+  }
+}

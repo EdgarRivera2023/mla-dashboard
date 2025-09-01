@@ -1,59 +1,70 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "../api/auth/[...nextauth]/route";
+'use client'; // <-- This page is now interactive, so it's a Client Component
 
-// A reusable component for our stat cards
-function StatCard({ title, value, description }) {
-  return (
-    <div className="rounded-lg bg-white p-6 shadow-md transition-transform hover:scale-105">
-      <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-      <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
-      <p className="mt-1 text-sm text-gray-500">{description}</p>
-    </div>
-  );
-}
+import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 
-// A new function to fetch our stats from our own API
-async function getStats() {
-  const response = await fetch(`${process.env.NEXTAUTH_URL}/api/stats`, { 
-    cache: 'no-store' 
-  });
+export default function DashboardPage() {
+  const { data: session } = useSession();
+  const [activeTab, setActiveTab] = useState('my-views'); // State to track the active tab
 
-  if (!response.ok) {
-    // Return default values on error
-    return { totalCases: 'Error' };
+  // We show a loading state while the session is being fetched
+  if (!session) {
+    return <div>Loading...</div>;
   }
-  return response.json();
-}
-
-export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
-  const stats = await getStats(); // Fetch the stats
 
   return (
     <div>
       <h1 className="text-3xl font-bold text-gray-900">
-        Welcome back, {session?.user?.name}!
+        Welcome back, {session.user.name}!
       </h1>
-      <p className="mt-2 text-lg text-gray-600">
-        Here's a snapshot of your business.
-      </p>
+      
+      <div className="mt-8">
+        {/* Tab Navigation */}
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+            <button
+              onClick={() => setActiveTab('my-views')}
+              className={`${
+                activeTab === 'my-views'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
+            >
+              My Views
+            </button>
+            
+            {/* Admin-only Master Views Tab */}
+            {session.user.role === 'admin' && (
+               <button
+                onClick={() => setActiveTab('master-views')}
+                className={`${
+                  activeTab === 'master-views'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
+              >
+                Master Views
+              </button>
+            )}
+          </nav>
+        </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard 
-          title="Total Active Cases" 
-          value={stats.totalCases} // <-- Using our live data!
-          description="From Podio" 
-        />
-        <StatCard 
-          title="New Leads This Week" 
-          value="--" // Placeholder
-          description="Coming soon" 
-        />
-        <StatCard 
-          title="Closing This Month" 
-          value="--" // Placeholder
-          description="Coming soon" 
-        />
+        {/* Tab Content */}
+        <div className="mt-8">
+          {activeTab === 'my-views' && (
+            <div>
+              <h2 className="text-xl font-semibold">Content for My Views</h2>
+              <p>The list of this user's views and items will go here.</p>
+            </div>
+          )}
+
+          {activeTab === 'master-views' && session.user.role === 'admin' && (
+            <div>
+              <h2 className="text-xl font-semibold">Content for Master Views</h2>
+              <p>The admin view content for all users will go here.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

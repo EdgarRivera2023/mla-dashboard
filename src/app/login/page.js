@@ -8,27 +8,35 @@ export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false); // Added for consistency
+  const router = useRouter(); 
 
   const handleSubmit = async (e) => {
-    e.preventDefault() // Prevents the browser from refreshing the page
-    setError('')
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
 
-    // This is the core sign-in logic
-    const result = await signIn('credentials', {
-      redirect: false, // We handle the redirect manually
-      username,
-      password,
-    })
+    try {
+      // The main change is here. We set redirect to true and provide the callbackUrl.
+      const result = await signIn('credentials', {
+        redirect: true,
+        callbackUrl: '/dashboard',
+        username,
+        password,
+      });
 
-    if (result.error) {
-      // If login fails, show an error message
-      setError('Invalid username or password. Please try again.')
-    } else {
-      // If login is successful, redirect to the homepage
-      router.push('/')
+      // The 'result' will have an error if login fails.
+      // NextAuth.js handles the success redirect automatically.
+      if (result.error) {
+        setError('Invalid username or password. Please try again.');
+        setIsLoading(false);
+      }
+      
+    } catch (err) {
+      setError(err.message);
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100">
@@ -39,51 +47,20 @@ export default function LoginPage() {
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label 
-              htmlFor="username" 
-              className="block text-sm font-medium text-gray-700"
-            >
-              Username
-            </label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            />
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700">Username</label>
+            <input id="username" type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
           </div>
-          
           <div>
-            <label 
-              htmlFor="password" 
-              className="block text-sm font-medium text-gray-700"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            />
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+            <input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
           </div>
-
           {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <button
-            type="submit"
-            className="w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            Sign In
-          </button>
+          <div className="flex justify-end pt-4">
+            <button type="submit" disabled={isLoading} className="w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50">
+              {isLoading ? 'Signing In...' : 'Sign In'}
+            </button>
+          </div>
         </form>
-
       </div>
     </main>
   );
