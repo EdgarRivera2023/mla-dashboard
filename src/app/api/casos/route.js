@@ -24,22 +24,46 @@ async function getAccessToken() {
     return authData.access_token;
 }
 
-// --- GET Handler (to fetch the list of cases) ---
+// Replace your old GET function with this one
 export async function GET(request) {
   try {
     const accessToken = await getAccessToken();
     const appId = process.env.PODIO_CASOS_APP_ID;
-    
-    const dataResponse = await fetch(`https://api.podio.com/item/app/${appId}/filter/`, {
-      method: 'POST',
-      headers: { 'Authorization': `OAuth2 ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit: 100, sort_by: "created_on", sort_desc: true }),
-    });
-    if (!dataResponse.ok) throw new Error('Podio data fetch failed');
+    const { searchParams } = new URL(request.url);
+    const searchTerm = searchParams.get('search');
+
+    let dataResponse;
+
+    // If there IS a search term, use the Search API
+    if (searchTerm) {
+      const searchBody = { query: searchTerm };
+      dataResponse = await fetch(`https://api.podio.com/search/app/${appId}/`, {
+        method: 'POST',
+        headers: { 'Authorization': `OAuth2 ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(searchBody),
+      });
+    } else {
+      // If there is NO search term, use the Filter API to get the full list
+      const filterBody = { limit: 100, sort_by: "created_on", sort_desc: true };
+      dataResponse = await fetch(`https://api.podio.com/item/app/${appId}/filter/`, {
+        method: 'POST',
+        headers: { 'Authorization': `OAuth2 ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(filterBody),
+      });
+    }
+
+    if (!dataResponse.ok) {
+      const errorBody = await dataResponse.json();
+      console.error("Podio API Error Body:", errorBody);
+      throw new Error(`Podio API returned status ${dataResponse.status}: ${errorBody.error_description || JSON.stringify(errorBody)}`);
+    }
     
     const data = await dataResponse.json();
     
-    const cases = data.items.map(item => ({
+    // Handle the different response structures from each endpoint
+    const items = data.items || data;
+
+    const cases = items.map(item => ({
       id: item.item_id,
       title: item.title,
       createdBy: item.created_by.name,
@@ -47,12 +71,12 @@ export async function GET(request) {
     }));
 
     return NextResponse.json(cases);
+
   } catch (error) {
     console.error('Podio API Process Error:', error);
     return NextResponse.json({ error: 'Failed to process Podio request.', details: error.message }, { status: 500 });
   }
 }
-
 // --- NEW POST Handler (to create a new case) ---
 export async function POST(request) {
   try {
@@ -110,15 +134,23 @@ export async function PUT(request, { params }) {
   const accessToken = await getAccessToken();
   const body = await request.json(); // Get the updated data from the front-end
 
-  // Format the data into the structure Podio expects for an update
+  // Inside your POST handler in /api/casos/route.js
   const podioData = {
     fields: {
-      // IMPORTANT: Replace these with your actual external_ids
-      'title': body.title, 
-      'your-nombre-demandado-external-id': body.demandado,
-      'your-fecha-demanda-external-id': {
-        start_date: body.fechaDemanda,
-      },
+      // These keys MUST be the external_id from Podio
+      'title': body.title,
+      'proyecto': body.proyecto,
+      'estatus-de-record': body.estatusDeRecord,
+      'fecha-demanda': { start_date: body.fechaDemanda },
+      'demandante': body.demandante,
+      'tipo-de-emplazamiento': body.tipoDeEmplazamiento,
+      'nombre-demandados': body.nombreDemandados,
+      'propiedad': body.propiedad,
+      //'pueblo-2': body.pueblo2, // This will fail for now, see below
+      'finca': body.finca,
+      'pagare-original': String(body.pagareOriginal), // FIX: Money fields must be a string
+      'fecha-pagare-original': { start_date: body.fechaPagareOriginal }, // FIX: Date fields need this object
+      'cuantia-demanda': String(body.cuantiaDemanda), // FIX: Money fields must be a string
     }
   };
 

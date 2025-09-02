@@ -1,4 +1,4 @@
-import HtmlRenderer from "../../../components/HtmlRenderer";
+import HtmlRenderer from "../../../../components/HtmlRenderer";
 
 // A function to fetch a single case from our API
 async function getCaso(id) {

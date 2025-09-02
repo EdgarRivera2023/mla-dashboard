@@ -25,9 +25,10 @@ export default function EditCasePage({ params }) {
     finca: '',
     pagareOriginal: '',
     fechaPagareOriginal: '',
-    cuantiaDemanda: '', // Corrected typo from your list
+    cuantiaDemanda: '',
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
   const { caseId } = params;
@@ -43,12 +44,13 @@ export default function EditCasePage({ params }) {
           const field = data.fields.find(f => f.external_id === externalId);
           if (!field || !field.values || field.values.length === 0) return '';
           const firstValue = field.values[0];
-          if (firstValue.start_date) return firstValue.start_date.split(' ')[0]; // Format for date input
-          return firstValue.value;
+          if (firstValue.start_date) return firstValue.start_date.split(' ')[0];
+          const fieldValue = firstValue.value;
+          if (typeof fieldValue === 'object' && fieldValue !== null && fieldValue.text) return fieldValue.text;
+          if (typeof fieldValue === 'object' && fieldValue !== null && fieldValue.title) return fieldValue.title;
+          return fieldValue;
         };
 
-        // Populate the formData state with the fetched data
-        // IMPORTANT: Replace these placeholder external_ids with your real ones
         setFormData({
           title: data.title || '',
           proyecto: getFieldValue('proyecto') || '',
@@ -82,33 +84,42 @@ export default function EditCasePage({ params }) {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsLoading(true);
-  setError('');
-
-  try {
-    const response = await fetch(`/api/casos/${caseId}`, {
-      method: 'PUT', // Use PUT for updates
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData), // Send the entire form state
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.details || 'Failed to update case');
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/casos/${caseId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Failed to update case');
+      }
+      toast.success('Case updated successfully!');
+      router.push('/dashboard/casos');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
     }
-    
-    toast.success('Case updated successfully!');
-    
-    // Redirect back to the main cases list page
-    router.push('/dashboard/casos');
+  };
 
-  } catch (err) {
-    toast.error(err.message);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  const handleDelete = async () => {
+    if (window.confirm('Are you sure you want to permanently delete this case?')) {
+      setIsDeleting(true);
+      try {
+        const response = await fetch(`/api/casos/${caseId}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('Failed to delete case');
+        toast.success('Case deleted successfully');
+        router.push('/dashboard/casos');
+      } catch (error) {
+        toast.error(error.message);
+        setIsDeleting(false);
+      }
+    }
+  };
   
   if (isLoading) return <div className="p-8">Loading case data...</div>;
   if (error) return <div className="p-8 text-red-600">Error: {error}</div>;
@@ -120,7 +131,6 @@ export default function EditCasePage({ params }) {
         <div className="rounded-lg bg-white p-8 shadow-md">
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2">
-              {/* The full 13-field JSX from the 'New Case' form */}
               <div><label htmlFor="title" className="block text-sm font-medium text-gray-700">Número Caso</label><input id="title" name="title" type="text" required value={formData.title} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" /></div>
               <div><label htmlFor="proyecto" className="block text-sm font-medium text-gray-700">Proyecto (Category)</label><input id="proyecto" name="proyecto" type="text" required value={formData.proyecto} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" /></div>
               <div><label htmlFor="estatusDeRecord" className="block text-sm font-medium text-gray-700">Estatus de Record (Category)</label><input id="estatusDeRecord" name="estatusDeRecord" type="text" required value={formData.estatusDeRecord} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" /></div>
@@ -135,8 +145,22 @@ export default function EditCasePage({ params }) {
               <div><label htmlFor="fechaPagareOriginal" className="block text-sm font-medium text-gray-700">Fecha Pagaré Original</label><input id="fechaPagareOriginal" name="fechaPagareOriginal" type="date" required value={formData.fechaPagareOriginal} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" /></div>
               <div><label htmlFor="cuantiaDemanda" className="block text-sm font-medium text-gray-700">Cuantía Demanda (Money)</label><input id="cuantiaDemanda" name="cuantiaDemanda" type="number" step="0.01" required value={formData.cuantiaDemanda} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" /></div>
             </div>
-            <div className="flex justify-end pt-8">
-              <button type="submit" disabled={isLoading} className="rounded-md border border-transparent bg-green-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-green-700 disabled:opacity-50">
+            
+            <div className="flex justify-between pt-8 items-center border-t mt-8">
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting || isLoading}
+                className="rounded-md bg-red-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Case'}
+              </button>
+
+              <button
+                type="submit"
+                disabled={isLoading || isDeleting}
+                className="rounded-md border border-transparent bg-green-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-green-700 disabled:opacity-50"
+              >
                 {isLoading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>

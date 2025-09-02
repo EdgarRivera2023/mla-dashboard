@@ -33,10 +33,17 @@ export async function GET(request, { params }) {
       method: 'GET',
       headers: { 'Authorization': `OAuth2 ${accessToken}` },
     });
-    if (!dataResponse.ok) throw new Error('Podio data fetch failed for single item.');
+    
+    // New, more detailed error handling
+    if (!dataResponse.ok) {
+      const errorBody = await dataResponse.json();
+      console.error("Podio API Error Body:", errorBody);
+      throw new Error(`Podio API returned status ${dataResponse.status}: ${errorBody.error_description}`);
+    }
     
     const data = await dataResponse.json();
     return NextResponse.json(data);
+
   } catch (error) {
     console.error('Podio API GET Error:', error);
     return NextResponse.json({ error: 'Failed to process Podio request.', details: error.message }, { status: 500 });
@@ -51,12 +58,19 @@ export async function PUT(request, { params }) {
 
   const podioData = {
     fields: {
-      // Remember to use your actual external_ids here
-      'title': body.title, 
-      'nombre-demandados': body.demandado,
-      'fecha-demanda': {
-        start_date: body.fechaDemanda,
-      },
+      'title': body.title,
+      'proyecto': body.proyecto,
+      'estatus-de-record': body.estatusDeRecord,
+      'fecha-demanda': { start_date: body.fechaDemanda },
+      'demandante': body.demandante,
+      'tipo-de-emplazamiento': body.tipoDeEmplazamiento,
+      'nombre-demandados': body.nombreDemandados,
+      'propiedad': body.propiedad,
+      //'pueblo-2': body.pueblo2,
+      'finca': body.finca,
+      'pagare-original': String(body.pagareOriginal),
+      'fecha-pagare-original': { start_date: body.fechaPagareOriginal },
+      'cuantia-demanda': String(body.cuantiaDemanda),
     }
   };
 
@@ -75,7 +89,6 @@ export async function PUT(request, { params }) {
       throw new Error(`Podio API Error: ${JSON.stringify(errorData)}`);
     }
     
-    // Check for an empty response before trying to parse JSON
     if (response.status === 204) {
       return NextResponse.json({ status: 'success' });
     }
@@ -88,8 +101,8 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: 'Failed to update item in Podio.', details: error.message }, { status: 500 });
   }
 }
-// ... your existing getAccessToken, GET, and PUT functions are above this ...
 
+// DELETE Handler (to delete a single case)
 export async function DELETE(request, { params }) {
   const { caseId } = params;
   const accessToken = await getAccessToken();
@@ -97,9 +110,7 @@ export async function DELETE(request, { params }) {
   try {
     const response = await fetch(`https://api.podio.com/item/${caseId}`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': `OAuth2 ${accessToken}`,
-      },
+      headers: { 'Authorization': `OAuth2 ${accessToken}` },
     });
 
     if (!response.ok) {
@@ -107,7 +118,6 @@ export async function DELETE(request, { params }) {
       throw new Error(`Podio API Error: ${JSON.stringify(errorData)}`);
     }
     
-    // A successful DELETE in Podio returns no content, so we just return our own success message.
     return NextResponse.json({ status: 'success', message: 'Item deleted successfully.' });
 
   } catch (error) {

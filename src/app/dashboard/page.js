@@ -1,71 +1,45 @@
-'use client'; // <-- This page is now interactive, so it's a Client Component
+'use client';
 
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
+
+const views = [
+  { id: 1, name: 'Todos los Casos Activos' },
+  { id: 2, name: 'Mis Casos Asignados' },
+  { id: 3, name: 'Cerrando Este Mes' },
+];
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
-  const [activeTab, setActiveTab] = useState('my-views'); // State to track the active tab
-
-  // We show a loading state while the session is being fetched
-  if (!session) {
-    return <div>Loading...</div>;
-  }
+  const [selectedView, setSelectedView] = useState(views[0]);
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-gray-900">
-        Welcome back, {session.user.name}!
-      </h1>
-      
-      <div className="mt-8">
-        {/* Tab Navigation */}
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-            <button
-              onClick={() => setActiveTab('my-views')}
-              className={`${
-                activeTab === 'my-views'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-              } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
-            >
-              My Views
-            </button>
-            
-            {/* Admin-only Master Views Tab */}
-            {session.user.role === 'admin' && (
-               <button
-                onClick={() => setActiveTab('master-views')}
-                className={`${
-                  activeTab === 'master-views'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
-              >
-                Master Views
-              </button>
-            )}
-          </nav>
+    <div className="flex h-full rounded-lg bg-white shadow-md">
+      <aside className="w-1/4 flex-shrink-0 border-r border-gray-200">
+        <div className="p-4">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Vistas</h2>
+          <ul>
+            {views.map((view) => (
+              <li key={view.id} className="mb-1">
+                <button
+                  onClick={() => setSelectedView(view)}
+                  className={`w-full text-left rounded-md p-2 text-sm ${
+                    selectedView.id === view.id
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {view.name}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
-
-        {/* Tab Content */}
-        <div className="mt-8">
-          {activeTab === 'my-views' && (
-            <div>
-              <h2 className="text-xl font-semibold">Content for My Views</h2>
-              <p>The list of this user's views and items will go here.</p>
-            </div>
-          )}
-
-          {activeTab === 'master-views' && session.user.role === 'admin' && (
-            <div>
-              <h2 className="text-xl font-semibold">Content for Master Views</h2>
-              <p>The admin view content for all users will go here.</p>
-            </div>
-          )}
-        </div>
-      </div>
+      </aside>
+      <main className="flex-1 p-8">
+        <h1 className="text-2xl font-bold">{selectedView.name}</h1>
+        <p className="mt-2 text-gray-600">
+          Una tabla con los items de esta vista se mostrará aquí.
+        </p>
+      </main>
     </div>
   );
 }

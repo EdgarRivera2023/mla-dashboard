@@ -1,5 +1,5 @@
 import "./globals.css";
-import Providers from "./components/Providers";
+import Providers from "../components/Providers";
 import { Toaster } from "react-hot-toast"; // <-- 1. Import Toaster
 
 export const metadata = {
