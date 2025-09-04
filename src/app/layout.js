@@ -1,6 +1,6 @@
 import "./globals.css";
 import Providers from "../components/Providers";
-import { Toaster } from "react-hot-toast"; // <-- 1. Import Toaster
+import { Toaster } from "react-hot-toast";
 
 export const metadata = {
   title: "MLA Dashboard",
@@ -11,8 +11,8 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <Toaster /> {/* <-- 2. Add Toaster component here */}
         <Providers>
+          <Toaster /> 
           {children}
         </Providers>
       </body>

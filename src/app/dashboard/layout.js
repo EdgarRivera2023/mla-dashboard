@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "../api/auth/[...nextauth]/route";
-import SignOutButton from "@/components/SignOutButton";
-import SidebarNav from "@/components/SidebarNav"; // <-- Re-importing our smart component
+import SignOutButton from '../../components/SignOutButton';
+import SidebarNav from '../../components/SidebarNav';
 
 // Define our navigation structure with the new name "Panel"
 const navLinks = [
