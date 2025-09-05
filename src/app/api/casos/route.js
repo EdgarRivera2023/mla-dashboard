@@ -1,179 +1,89 @@
+// src/app/api/casos/route.js
+
 import { NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
-// --- Helper function for Authentication ---
-// We put this outside so both GET and POST can use it.
-async function getAccessToken() {
-  const clientId = process.env.PODIO_CLIENT_ID;
-  const clientSecret = process.env.PODIO_CLIENT_SECRET;
-  const username = process.env.PODIO_USERNAME;
-  const password = process.env.PODIO_PASSWORD;
-  
-  const authResponse = await fetch('https://api.podio.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'password',
-        client_id: clientId,
-        client_secret: clientSecret,
-        username: username,
-        password: password,
-      }),
-    });
-    if (!authResponse.ok) throw new Error('Podio authentication failed');
-    const authData = await authResponse.json();
-    return authData.access_token;
+// Helper function to get the app template
+async function getAppTemplate(accessToken, appId) {
+  const response = await fetch(`https://api.podio.com/app/${appId}`, {
+    headers: { Authorization: `OAuth2 ${accessToken}` },
+  });
+  if (!response.ok) throw new Error('Failed to fetch app template');
+  return await response.json();
 }
 
-// Replace your old GET function with this one
-export async function GET(request) {
+export async function POST(req) {
   try {
-    const accessToken = await getAccessToken();
-    const appId = process.env.PODIO_CASOS_APP_ID;
-    const { searchParams } = new URL(request.url);
-    const searchTerm = searchParams.get('search');
-
-    let dataResponse;
-
-    // If there IS a search term, use the Search API
-    if (searchTerm) {
-      const searchBody = { query: searchTerm };
-      dataResponse = await fetch(`https://api.podio.com/search/app/${appId}/`, {
-        method: 'POST',
-        headers: { 'Authorization': `OAuth2 ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(searchBody),
-      });
-    } else {
-      // If there is NO search term, use the Filter API to get the full list
-      const filterBody = { limit: 100, sort_by: "created_on", sort_desc: true };
-      dataResponse = await fetch(`https://api.podio.com/item/app/${appId}/filter/`, {
-        method: 'POST',
-        headers: { 'Authorization': `OAuth2 ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(filterBody),
-      });
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (!token || !token.podioAccessToken) {
+      return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
     }
 
-    if (!dataResponse.ok) {
-      const errorBody = await dataResponse.json();
-      console.error("Podio API Error Body:", errorBody);
-      throw new Error(`Podio API returned status ${dataResponse.status}: ${errorBody.error_description || JSON.stringify(errorBody)}`);
-    }
-    
-    const data = await dataResponse.json();
-    
-    // Handle the different response structures from each endpoint
-    const items = data.items || data;
-
-    const cases = items.map(item => ({
-      id: item.item_id,
-      title: item.title,
-      createdBy: item.created_by.name,
-      createdOn: item.created_on,
-    }));
-
-    return NextResponse.json(cases);
-
-  } catch (error) {
-    console.error('Podio API Process Error:', error);
-    return NextResponse.json({ error: 'Failed to process Podio request.', details: error.message }, { status: 500 });
-  }
-}
-// --- NEW POST Handler (to create a new case) ---
-export async function POST(request) {
-  try {
-    const accessToken = await getAccessToken();
+    const formData = await req.json();
     const appId = process.env.PODIO_CASOS_APP_ID;
-    const body = await request.json(); // Get the data from the front-end form
 
-    // We must format the data into the structure Podio expects
-    const podioData = {
-      fields: {
-        // IMPORTANT: Replace these with your actual external_ids from Podio
-        'title': body.title,
-        'proyecto': body.proyecto,
-        'estatus-de-record': body.estatusDeRecord,
-        'fecha-demanda': {
-          start_date: body.fechaDemanda, // Podio expects date objects
-        'demandante': body.demandante,
-        'tipo-de-emplazamiento': body.tipoDeEmplazamiento,
-        'nombre-demandados': body.nombreDemandados,
-        'propiedad': body.propiedad,
-        'pueblo-2': body.pueblo2,
-        'finca': body.finca,
-        'pagare-original': body.pagareOriginal,
-        'fecha-pagare-original': {
-          start_date: body.fechaPagareOriginal,
-        },
-        'cuantia-demanda': body.cuantiaDemanda,
-        },
+    // 1. Get the app blueprint to know the type of each field
+    const appTemplate = await getAppTemplate(token.podioAccessToken, appId);
+
+    // 2. Build the correctly formatted 'fields' object for Podio
+    const fields = {};
+    for (const external_id in formData) {
+      const value = formData[external_id];
+      const field = appTemplate.fields.find(f => f.external_id === external_id);
+
+      if (field && value) {
+        switch (field.type) {
+          case 'date':
+            // Dates must be in an object with a 'start' key
+            fields[external_id] = { start: value };
+            break;
+          case 'money':
+            // Money fields should be converted to numbers
+            fields[external_id] = parseFloat(value);
+            break;
+          case 'category':
+          case 'app':
+             // Category and App References need to be item_ids (numbers)
+             // Our form already sends the ID, but let's ensure it's a number/array of numbers
+            if (Array.isArray(value)) {
+              fields[external_id] = value.map(id => parseInt(id, 10));
+            } else {
+              fields[external_id] = parseInt(value, 10);
+            }
+            break;
+          default:
+            // All other fields (like text) can be sent as is
+            fields[external_id] = value;
+            break;
+        }
       }
+    }
+
+    // 3. Create the final request body for Podio
+    const podioRequestBody = {
+      fields: fields,
     };
 
     const response = await fetch(`https://api.podio.com/item/app/${appId}/`, {
       method: 'POST',
-      headers: { 'Authorization': `OAuth2 ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(podioData),
+      headers: {
+        'Authorization': `OAuth2 ${token.podioAccessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(podioRequestBody)
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Podio API Error: ${JSON.stringify(errorData)}`);
+      console.error("Podio Create Item Error:", errorData);
+      throw new Error(`Podio API Error: ${errorData.error_description}`);
     }
 
     const newPodioItem = await response.json();
-
-    return NextResponse.json({ status: 'success', newItemId: newPodioItem.item_id });
-  } catch (error) {
-    console.error('Podio Create Item Error:', error);
-    return NextResponse.json({ error: 'Failed to create item in Podio.', details: error.message }, { status: 500 });
-  }
-}
-
-// ... your existing getAccessToken and GET functions are above this ...
-export async function PUT(request, { params }) {
-  const { caseId } = params;
-  const accessToken = await getAccessToken();
-  const body = await request.json(); // Get the updated data from the front-end
-
-  // Inside your POST handler in /api/casos/route.js
-  const podioData = {
-    fields: {
-      // These keys MUST be the external_id from Podio
-      'title': body.title,
-      'proyecto': body.proyecto,
-      'estatus-de-record': body.estatusDeRecord,
-      'fecha-demanda': { start_date: body.fechaDemanda },
-      'demandante': body.demandante,
-      'tipo-de-emplazamiento': body.tipoDeEmplazamiento,
-      'nombre-demandados': body.nombreDemandados,
-      'propiedad': body.propiedad,
-      //'pueblo-2': body.pueblo2, // This will fail for now, see below
-      'finca': body.finca,
-      'pagare-original': String(body.pagareOriginal), // FIX: Money fields must be a string
-      'fecha-pagare-original': { start_date: body.fechaPagareOriginal }, // FIX: Date fields need this object
-      'cuantia-demanda': String(body.cuantiaDemanda), // FIX: Money fields must be a string
-    }
-  };
-
-  try {
-    const response = await fetch(`https://api.podio.com/item/${caseId}`, {
-      method: 'PUT', // Use PUT for updates
-      headers: {
-        'Authorization': `OAuth2 ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(podioData),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Podio API Error: ${JSON.stringify(errorData)}`);
-    }
-
-    const revisionData = await response.json();
-    return NextResponse.json({ status: 'success', revision: revisionData.revision });
+    return NextResponse.json(newPodioItem, { status: 201 });
 
   } catch (error) {
-    console.error('Podio Update Item Error:', error);
-    return NextResponse.json({ error: 'Failed to update item in Podio.', details: error.message }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ message: "Internal Server Error", details: errorMessage }, { status: 500 });
   }
 }

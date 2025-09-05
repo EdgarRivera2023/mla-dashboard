@@ -1,27 +1,38 @@
+// src/app/dashboard/casos/new/page.js
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'react-hot-toast';
+import FormField from '../../../../components/FormField';
 
-export default function NewCasePage() {
-  const [formData, setFormData] = useState({
-    title: '',
-    proyecto: '',
-    estatusDeRecord: '',
-    fechaDemanda: '',
-    demandante: '',
-    tipoDeEmplazamiento: '',
-    nombreDemandados: '',
-    propiedad: '',
-    pueblo2: '',
-    finca: '',
-    pagareOriginal: '',
-    fechaPagareOriginal: '',
-    duantiaDemanda: '', // Note: Mispelled in your list, should be 'cuantia'
-  });
-  const [isLoading, setIsLoading] = useState(false);
+export default function NewCasoPage() {
+  const [appTemplate, setAppTemplate] = useState(null);
+  const [formData, setFormData] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchAppTemplate = async () => {
+      try {
+        const response = await fetch('/api/podio/app-template');
+        if (!response.ok) {
+          throw new Error('Failed to fetch the app template from the server.');
+        }
+        const data = await response.json();
+        setAppTemplate(data);
+      } catch (err) {
+        setError(err.message);
+        toast.error(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAppTemplate();
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -30,15 +41,28 @@ export default function NewCasePage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSubmitting(true);
     
+    const formattedData = { ...formData };
+    for (const key in formattedData) {
+      const value = formattedData[key];
+      // Handles single-select App Reference {value, label}
+      if (value && typeof value === 'object' && !Array.isArray(value) && value.hasOwnProperty('value')) {
+        formattedData[key] = value.value;
+      } 
+      // Handles multi-select App Reference [{value, label}, ...]
+      else if (Array.isArray(value)) {
+        formattedData[key] = value.map(item => item.value);
+      }
+    }
+
     try {
       const response = await fetch('/api/casos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formattedData),
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.details || 'Failed to create case');
@@ -46,82 +70,46 @@ export default function NewCasePage() {
       
       toast.success('Case created successfully!');
       router.push('/dashboard/casos');
+      router.refresh();
     } catch (err) {
       toast.error(err.message);
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
+  if (isLoading) return <div className="p-8">Loading dynamic form...</div>;
+  if (error) return <div className="p-8 text-red-500">Error: {error}</div>;
+
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-gray-900">Create a New Case</h1>
-      <div className="mt-8 max-w-4xl">
-        <div className="rounded-lg bg-white p-8 shadow-md">
-          <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2">
-              {/* Fields go here, mapped from formData */}
-              <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700">Número Caso</label>
-                <input id="title" name="title" type="text" required value={formData.title} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label htmlFor="proyecto" className="block text-sm font-medium text-gray-700">Proyecto (Category)</label>
-                <input id="proyecto" name="proyecto" type="text" required value={formData.proyecto} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label htmlFor="estatusDeRecord" className="block text-sm font-medium text-gray-700">Estatus de Record (Category)</label>
-                <input id="estatusDeRecord" name="estatusDeRecord" type="text" required value={formData.estatusDeRecord} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label htmlFor="fechaDemanda" className="block text-sm font-medium text-gray-700">Fecha Demanda</label>
-                <input id="fechaDemanda" name="fechaDemanda" type="date" required value={formData.fechaDemanda} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div className="sm:col-span-2">
-                <label htmlFor="demandante" className="block text-sm font-medium text-gray-700">Demandante</label>
-                <input id="demandante" name="demandante" type="text" required value={formData.demandante} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label htmlFor="tipoDeEmplazamiento" className="block text-sm font-medium text-gray-700">Tipo de Emplazamiento (Category)</label>
-                <input id="tipoDeEmplazamiento" name="tipoDeEmplazamiento" type="text" required value={formData.tipoDeEmplazamiento} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div className="sm:col-span-2">
-                <label htmlFor="nombreDemandados" className="block text-sm font-medium text-gray-700">Nombre Demandado</label>
-                <textarea id="nombreDemandados" name="nombreDemandados" required value={formData.nombreDemandados} onChange={handleInputChange} rows={3} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div className="sm:col-span-2">
-                <label htmlFor="propiedad" className="block text-sm font-medium text-gray-700">Dirección de la Propiedad</label>
-                <textarea id="propiedad" name="propiedad" required value={formData.propiedad} onChange={handleInputChange} rows={3} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label htmlFor="pueblo2" className="block text-sm font-medium text-gray-700">Pueblo (Reference)</label>
-                <input id="pueblo2" name="pueblo2" type="text" required value={formData.pueblo2} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label htmlFor="finca" className="block text-sm font-medium text-gray-700">Finca</label>
-                <input id="finca" name="finca" type="text" required value={formData.finca} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label htmlFor="pagareOriginal" className="block text-sm font-medium text-gray-700">Pagaré Original (Money)</label>
-                <input id="pagareOriginal" name="pagareOriginal" type="number" step="0.01" required value={formData.pagareOriginal} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label htmlFor="fechaPagareOriginal" className="block text-sm font-medium text-gray-700">Fecha Pagaré Original</label>
-                <input id="fechaPagareOriginal" name="fechaPagareOriginal" type="date" required value={formData.fechaPagareOriginal} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label htmlFor="duantiaDemanda" className="block text-sm font-medium text-gray-700">Cuantía Demanda (Money)</label>
-                <input id="duantiaDemanda" name="duantiaDemanda" type="number" step="0.01" required value={formData.duantiaDemanda} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-            </div>
-            <div className="flex justify-end pt-8">
-              <button type="submit" disabled={isLoading} className="rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50">
-                {isLoading ? 'Creating...' : 'Create Case'}
-              </button>
-            </div>
-          </form>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <h1 className="text-2xl font-bold mb-6">Añadir Nuevo Caso</h1>
+      <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-lg shadow-md">
+        {appTemplate && appTemplate.fields
+          .filter(field => field.status === 'active' && !field.config.hidden)
+          .map((field) => (
+            <FormField
+              key={field.external_id}
+              field={field}
+              value={formData[field.external_id] || ''}
+              onChange={handleInputChange}
+            />
+          ))}
+        <div className="flex justify-end pt-4 border-t mt-6">
+          <Link href="/dashboard/casos">
+             <button type="button" className="rounded-md bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 ring-1 ring-inset ring-gray-300">
+                Cancel
+             </button>
+          </Link>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="ml-3 inline-flex justify-center rounded-md bg-indigo-600 py-2 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50"
+          >
+            {isSubmitting ? 'Saving...' : 'Save Case'}
+          </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }
