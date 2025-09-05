@@ -1,127 +1,142 @@
+// src/app/api/casos/[caseId]/route.js
+
 import { NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
-// Helper function for Authentication
-async function getAccessToken() {
-  const clientId = process.env.PODIO_CLIENT_ID;
-  const clientSecret = process.env.PODIO_CLIENT_SECRET;
-  const username = process.env.PODIO_USERNAME;
-  const password = process.env.PODIO_PASSWORD;
-
-  const authResponse = await fetch('https://api.podio.com/oauth/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'password',
-      client_id: clientId,
-      client_secret: clientSecret,
-      username: username,
-      password: password,
-    }),
-  });
-  if (!authResponse.ok) throw new Error('Podio authentication failed');
-  const authData = await authResponse.json();
-  return authData.access_token;
+async function getPodioAccessToken(req) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token || !token.podioAccessToken) {
+    throw new Error('Podio access token not found.');
+  }
+  return token.podioAccessToken;
 }
 
-// GET Handler (to fetch a single case)
-export async function GET(request, { params }) {
-  const { caseId } = params;
+async function getAppTemplate(accessToken, appId) {
+  const response = await fetch(`https://api.podio.com/app/${appId}`, {
+    headers: { Authorization: `OAuth2 ${accessToken}` },
+  });
+  if (!response.ok) throw new Error('Failed to fetch app template');
+  return await response.json();
+}
 
+export async function GET(req, { params }) {
   try {
-    const accessToken = await getAccessToken();
-    const dataResponse = await fetch(`https://api.podio.com/item/${caseId}`, {
+    const accessToken = await getPodioAccessToken(req);
+    const { caseId } = params;
+
+    const response = await fetch(`https://api.podio.com/item/${caseId}`, {
       method: 'GET',
-      headers: { 'Authorization': `OAuth2 ${accessToken}` },
+      headers: {
+        'Authorization': `OAuth2 ${accessToken}`,
+      },
     });
-    
-    // New, more detailed error handling
-    if (!dataResponse.ok) {
-      const errorBody = await dataResponse.json();
-      console.error("Podio API Error Body:", errorBody);
-      throw new Error(`Podio API returned status ${dataResponse.status}: ${errorBody.error_description}`);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Podio API Error: ${errorData.error_description}`);
     }
-    
-    const data = await dataResponse.json();
-    return NextResponse.json(data);
+
+    const itemData = await response.json();
+    return NextResponse.json(itemData);
 
   } catch (error) {
-    console.error('Podio API GET Error:', error);
-    return NextResponse.json({ error: 'Failed to process Podio request.', details: error.message }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ message: "Internal Server Error", details: errorMessage }, { status: 500 });
   }
 }
 
-// PUT Handler (to update a single case)
-export async function PUT(request, { params }) {
-  const { caseId } = params;
-  const accessToken = await getAccessToken();
-  const body = await request.json();
-
-  const podioData = {
-    fields: {
-      'title': body.title,
-      'proyecto': body.proyecto,
-      'estatus-de-record': body.estatusDeRecord,
-      'fecha-demanda': { start_date: body.fechaDemanda },
-      'demandante': body.demandante,
-      'tipo-de-emplazamiento': body.tipoDeEmplazamiento,
-      'nombre-demandados': body.nombreDemandados,
-      'propiedad': body.propiedad,
-      //'pueblo-2': body.pueblo2,
-      'finca': body.finca,
-      'pagare-original': String(body.pagareOriginal),
-      'fecha-pagare-original': { start_date: body.fechaPagareOriginal },
-      'cuantia-demanda': String(body.cuantiaDemanda),
-    }
-  };
-
+export async function PUT(req, { params }) {
   try {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (!token || !token.podioAccessToken) {
+      return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
+    }
+
+    const { caseId } = params;
+    const formData = await req.json();
+    const appId = process.env.PODIO_CASOS_APP_ID;
+    
+    const appTemplate = await getAppTemplate(token.podioAccessToken, appId);
+
+    const fields = {};
+    for (const external_id in formData) {
+      const value = formData[external_id];
+      const field = appTemplate.fields.find(f => f.external_id === external_id);
+
+      if (field && value !== null && value !== undefined) {
+        switch (field.type) {
+          case 'date':
+            fields[external_id] = value ? { start: value } : null;
+            break;
+          case 'money':
+            fields[external_id] = value ? parseFloat(value) : null;
+            break;
+          case 'category':
+            fields[external_id] = value ? parseInt(value, 10) : null;
+            break;
+          case 'app':
+            if (Array.isArray(value)) {
+              fields[external_id] = value.map(item => item.value);
+            } else if (value && typeof value === 'object' && value.hasOwnProperty('value')) {
+              fields[external_id] = value.value;
+            } else {
+               fields[external_id] = value;
+            }
+            break;
+          default:
+            fields[external_id] = value;
+            break;
+        }
+      }
+    }
+
+    const podioRequestBody = { fields: fields };
+
     const response = await fetch(`https://api.podio.com/item/${caseId}`, {
       method: 'PUT',
       headers: {
-        'Authorization': `OAuth2 ${accessToken}`,
-        'Content-Type': 'application/json',
+        'Authorization': `OAuth2 ${token.podioAccessToken}`,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(podioData),
+      body: JSON.stringify(podioRequestBody)
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Podio API Error: ${JSON.stringify(errorData)}`);
-    }
-    
-    if (response.status === 204) {
-      return NextResponse.json({ status: 'success' });
+      console.error("Podio Update Error:", errorData)
+      throw new Error(`Podio API Error: ${errorData.error_description}`);
     }
 
-    const revisionData = await response.json();
-    return NextResponse.json({ status: 'success', revision: revisionData.revision });
+    const updatedData = await response.json();
+    return NextResponse.json(updatedData);
 
   } catch (error) {
-    console.error('Podio Update Item Error:', error);
-    return NextResponse.json({ error: 'Failed to update item in Podio.', details: error.message }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ message: "Internal Server Error", details: errorMessage }, { status: 500 });
   }
 }
 
-// DELETE Handler (to delete a single case)
-export async function DELETE(request, { params }) {
-  const { caseId } = params;
-  const accessToken = await getAccessToken();
-
+export async function DELETE(req, { params }) {
   try {
+    const accessToken = await getPodioAccessToken(req);
+    const { caseId } = params;
+
     const response = await fetch(`https://api.podio.com/item/${caseId}`, {
       method: 'DELETE',
-      headers: { 'Authorization': `OAuth2 ${accessToken}` },
+      headers: {
+        'Authorization': `OAuth2 ${accessToken}`,
+      },
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Podio API Error: ${JSON.stringify(errorData)}`);
+    if (response.status === 204) {
+      return NextResponse.json(null, { status: 204 });
     }
-    
-    return NextResponse.json({ status: 'success', message: 'Item deleted successfully.' });
 
+    const errorData = await response.json();
+    throw new Error(`Podio API Error: ${errorData.error_description}`);
+    
   } catch (error) {
-    console.error('Podio Delete Item Error:', error);
-    return NextResponse.json({ error: 'Failed to delete item in Podio.', details: error.message }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ message: "Internal Server Error", details: errorMessage }, { status: 500 });
   }
 }

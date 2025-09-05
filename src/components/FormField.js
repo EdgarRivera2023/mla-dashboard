@@ -1,9 +1,14 @@
 // src/components/FormField.js
 'use client';
 
+import Link from 'next/link';
 import AsyncSelect from 'react-select/async';
 
 const FormField = ({ field, value, onChange }) => {
+  // --- THE FIX IS HERE ---
+  // Added the generic "border" class to apply the border to all four sides.
+  const inputClassName = "block w-full rounded-md border border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:ring-2 sm:text-sm p-2";
+
   const loadOptions = async (inputValue) => {
     try {
       const response = await fetch('/api/podio/search-items', {
@@ -43,7 +48,7 @@ const FormField = ({ field, value, onChange }) => {
     switch (field.type) {
       case 'category':
         return (
-          <select id={field.external_id} name={field.external_id} value={value} onChange={onChange} className="block w-full rounded-md border-gray-300 shadow-sm p-2">
+          <select id={field.external_id} name={field.external_id} value={value} onChange={onChange} className={inputClassName}>
             <option value="">Select an option...</option>
             {field.config.settings.options.map((option) => (
               <option key={option.id} value={option.id}>
@@ -52,22 +57,19 @@ const FormField = ({ field, value, onChange }) => {
             ))}
           </select>
         );
-
       case 'date':
-        return <input type="date" id={field.external_id} name={field.external_id} value={value} onChange={onChange} className="block w-full rounded-md border-gray-300 shadow-sm p-2" />;
-      
+        return <input type="date" id={field.external_id} name={field.external_id} value={value} onChange={onChange} className={inputClassName} />;
       case 'money':
-        return <input type="number" id={field.external_id} name={field.external_id} value={value} onChange={onChange} step="0.01" className="block w-full rounded-md border-gray-300 shadow-sm p-2" />;
-      
+        return <input type="number" id={field.external_id} name={field.external_id} value={value} onChange={onChange} step="0.01" className={inputClassName} />;
       case 'app':
         const isMulti = field.config.settings.multiple;
         const selectedItems = Array.isArray(value) ? value : (value ? [value] : []);
-
+        const referencedAppSlug = field.config.settings.referenced_apps[0].url_label;
         return (
           <div>
             <AsyncSelect
               key={field.external_id}
-              isMulti={false}
+              value={null}
               onChange={handleSelectChange}
               loadOptions={loadOptions}
               placeholder="Search to add an item..."
@@ -81,21 +83,21 @@ const FormField = ({ field, value, onChange }) => {
                       <thead>
                         <tr>
                           <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Selected Item</th>
-                          <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-0">
-                            <span className="sr-only">Remove</span>
-                          </th>
+                          <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-0"><span className="sr-only">Remove</span></th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {selectedItems.map(item => (
                           <tr key={item.value}>
-                            <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">{item.label}</td>
+                            <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
+                              <Link href={`/dashboard/${referencedAppSlug}/${item.value}`}>
+                                <span className="text-indigo-600 hover:text-indigo-900 hover:underline">{item.label}</span>
+                              </Link>
+                            </td>
                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
-                              {isMulti && (
-                                <button type="button" onClick={() => handleRemove(item)} className="text-indigo-600 hover:text-indigo-900">
-                                  Remove
-                                </button>
-                              )}
+                              <button type="button" onClick={() => handleRemove(item)} className="text-indigo-600 hover:text-indigo-900">
+                                Remove
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -107,9 +109,8 @@ const FormField = ({ field, value, onChange }) => {
             )}
           </div>
         );
-
       default:
-        return <input type="text" id={field.external_id} name={field.external_id} value={value} onChange={onChange} className="block w-full rounded-md border-gray-300 shadow-sm p-2" />;
+        return <input type="text" id={field.external_id} name={field.external_id} value={value} onChange={onChange} className={inputClassName} />;
     }
   };
 

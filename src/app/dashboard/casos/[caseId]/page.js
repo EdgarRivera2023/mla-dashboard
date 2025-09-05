@@ -1,85 +1,120 @@
-import HtmlRenderer from "../../../../components/HtmlRenderer";
+// src/app/dashboard/casos/[caseId]/page.js
+'use client';
 
-// A function to fetch a single case from our API
-async function getCaso(id) {
-  const response = await fetch(`${process.env.NEXTAUTH_URL}/api/casos/${id}`, { 
-    cache: 'no-store' 
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch case data');
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
+import CasoForm from '../../../../components/CasoForm';
+
+const transformPodioItemToFormData = (podioItem) => {
+  const formData = {};
+  if (!podioItem || !podioItem.fields) return formData;
+  for (const field of podioItem.fields) {
+    const { external_id, type, values } = field;
+    if (!values || values.length === 0) continue;
+    switch (type) {
+      case 'date':
+        formData[external_id] = values[0].start_date;
+        break;
+      case 'category':
+        formData[external_id] = values[0].value.id;
+        break;
+      case 'app':
+        const isMulti = field.config.settings.multiple;
+        if (isMulti) {
+          formData[external_id] = values.map(v => ({ value: v.value.item_id, label: v.value.title }));
+        } else {
+          formData[external_id] = { value: values[0].value.item_id, label: values[0].value.title };
+        }
+        break;
+      default:
+        formData[external_id] = values[0].value;
+        break;
+    }
   }
-  return response.json();
-}
+  return formData;
+};
 
-export default async function CaseDetailPage({ params }) {
-  const caso = await getCaso(params.caseId);
+export default function EditCasoPage({ params }) {
+  const { caseId } = params;
+  const [appTemplate, setAppTemplate] = useState(null);
+  const [formData, setFormData] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const router = useRouter();
 
-  // The final, correct helper function for Podio fields
-  const getFieldValue = (externalId) => {
-    // --- DEBUGGING CODE ---
-    if (externalId === 'your-nombre-demandado-external-id') {
-      console.log("--- DEBUGGING 'Nombre Demandado' Field ---");
-      console.log(JSON.stringify(
-        caso.fields.find(f => f.external_id === externalId),
-        null,
-        2
-      ));
-    }
-    // --- END DEBUGGING CODE ---
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [templateRes, itemRes] = await Promise.all([
+          fetch('/api/podio/app-template'),
+          fetch(`/api/casos/${caseId}`),
+        ]);
+        if (!templateRes.ok) throw new Error('Failed to fetch app template');
+        if (!itemRes.ok) throw new Error('Failed to fetch case data');
+        const templateData = await templateRes.json();
+        const itemData = await itemRes.json();
+        setAppTemplate(templateData);
+        setFormData(transformPodioItemToFormData(itemData));
+      } catch (err) {
+        setError(err.message);
+        toast.error(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [caseId]);
 
-    const field = caso.fields.find(f => f.external_id === externalId);
-    
-    if (!field || !field.values || field.values.length === 0) {
-      return 'N/A';
-    }
-    
-    const firstValue = field.values[0];
-    
-    // Case 1: Handle Date objects
-    if (firstValue.start_date) {
-      return new Date(firstValue.start_date).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        timeZone: 'UTC'
-      });
-    }
-    
-    const fieldValue = firstValue.value;
-    
-    // Case 2: Handle Relationship objects
-    if (typeof fieldValue === 'object' && fieldValue !== null && fieldValue.title) {
-      return fieldValue.title;
-    }
-    
-    // Case 3: Handle simple Text, Number, or Rich Text HTML
-    return fieldValue;
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prevState => ({ ...prevState, [name]: value }));
   };
 
-  return (
-    <div>
-      <h1 className="text-3xl font-bold text-gray-900">
-        {caso.title}
-      </h1>
-      <p className="mt-1 text-sm text-gray-500">
-        Case ID: {caso.item_id}
-      </p>
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    // ... (logic to format data before sending)
+    const formattedData = { ...formData };
+    for (const key in formattedData) {
+        const value = formattedData[key];
+        if (value && typeof value === 'object' && !Array.isArray(value) && value.hasOwnProperty('value')) {
+            formattedData[key] = value.value;
+        } else if (Array.isArray(value)) {
+            formattedData[key] = value.map(item => item.value);
+        }
+    }
 
-      <div className="mt-8 rounded-lg bg-white p-6 shadow-md">
-        <h2 className="text-xl font-semibold">Case Details</h2>
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <dt className="text-sm font-medium text-gray-500">Nombre Demandado</dt>
-            <dd className="mt-1 text-lg text-gray-900">
-              <HtmlRenderer htmlString={getFieldValue('nombre-demandados')} />
-            </dd>
-          </div>
-          <div>
-            <dt className="text-sm font-medium text-gray-500">Fecha Demanda</dt>
-            <dd className="mt-1 text-lg text-gray-900">{getFieldValue('fecha-demanda')}</dd>
-          </div>
-        </div>
-      </div>
-    </div>
+    try {
+      const response = await fetch(`/api/casos/${caseId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formattedData),
+      });
+      if (!response.ok) throw new Error('Failed to update case');
+      toast.success('Case updated successfully!');
+      router.push('/dashboard/casos');
+      router.refresh();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) return <div className="p-8">Loading case data...</div>;
+  if (error) return <div className="p-8 text-red-500">Error: {error}</div>;
+
+  return (
+    <CasoForm
+      appTemplate={appTemplate}
+      formData={formData}
+      handleInputChange={handleInputChange}
+      handleSubmit={handleSubmit}
+      isSubmitting={isSubmitting}
+      pageTitle="Edit Case"
+      caseId={caseId}
+    />
   );
 }
