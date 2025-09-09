@@ -1,32 +1,36 @@
+// src/components/SidebarNav.js
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
+// The component now accepts a 'links' prop
 export default function SidebarNav({ links }) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex-1">
-      <ul>
-        {links.map((link) => {
-          const isActive = pathname === link.href;
-          return (
-            <li key={link.name} className={`mb-2 ${link.isSeparator ? 'border-t border-gray-700 pt-4 mt-4' : ''}`}>
-              <Link
-                href={link.href}
-                className={`block rounded py-2 px-3 ${
-                  isActive
-                    ? 'text-yellow-400 font-bold' // Style for the active link
-                    : 'hover:bg-gray-700'       // Style for inactive links
-                }`}
-              >
-                {link.name}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+    <ul role="list" className="flex flex-1 flex-col gap-y-7">
+      <li>
+        <ul role="list" className="-mx-2 space-y-1">
+          {links.map((link) => {
+            const isActive = pathname.startsWith(link.href);
+            return (
+              <li key={link.name}>
+                <Link href={link.href}>
+                  <span
+                    className={`
+                      ${isActive ? 'bg-slate-700 text-white' : 'text-gray-400 hover:text-white hover:bg-slate-700'}
+                      group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold
+                    `}
+                  >
+                    {link.name}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </li>
+    </ul>
   );
 }

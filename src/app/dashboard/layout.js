@@ -1,46 +1,66 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "../api/auth/[...nextauth]/route";
+// src/app/dashboard/layout.js
+'use client';
+
 import SignOutButton from '../../components/SignOutButton';
 import SidebarNav from '../../components/SidebarNav';
+import { SidebarProvider, useSidebar } from '../../context/SidebarContext';
+import CasosProyectosPanel from '../../components/CasosProyectosPanel'; // 1. Import new panel
 
-// Define our navigation structure with the new name "Panel"
-const navLinks = [
-  { name: 'Panel', href: '/dashboard' }, // <-- Changed from Dashboard
+const navigation = [
+  { name: 'Panel', href: '/dashboard' },
   { name: 'Casos', href: '/dashboard/casos' },
   { name: 'Contactos', href: '/dashboard/contactos' },
   { name: 'Tareas', href: '/dashboard/tareas' },
-  { name: 'Staff', href: '/dashboard/staff', adminOnly: true },
-  { name: 'Panel de Admin', href: '/dashboard/admin', adminOnly: true, isSeparator: true },
+  { name: 'Staff', href: '/dashboard/staff' },
+  { name: 'Panel de Admin', href: '/dashboard/admin' },
 ];
 
-export default async function DashboardLayout({ children }) {
-  const session = await getServerSession(authOptions);
-  const userRole = session?.user?.role;
+function Sidebar() {
+  const { sidebarView } = useSidebar();
 
-  // Filter links based on user role
-  const accessibleLinks = navLinks.filter(link => 
-    !link.adminOnly || (link.adminOnly && userRole === 'admin')
-  );
+  const renderSidebarContent = () => {
+    switch(sidebarView) {
+      case 'casosDashboard':
+        return <CasosProyectosPanel />;
+      // We will add 'casosDetailFilters' later
+      case 'main':
+      default:
+        return <SidebarNav links={navigation} />;
+    }
+  }
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans">
-      <aside className="relative w-64 flex-shrink-0 bg-gray-800 p-6 text-white flex flex-col">
-        <h2 className="mb-8 text-2xl font-bold">DataLink Web</h2>
-        
-        {/* Using our SidebarNav component again */}
-        <SidebarNav links={accessibleLinks} />
+    <div className="flex flex-col h-full bg-slate-800">
+      <div className="flex h-16 shrink-0 items-center px-6">
+        <h1 className="text-2xl font-bold text-white">DataLink Web</h1>
+      </div>
+      
+      <nav className="flex-1 overflow-y-auto px-6 py-4">
+        {renderSidebarContent()}
+      </nav>
 
-        <div className="mt-auto">
-          <div className="mb-4 border-t border-gray-700"></div>
-          <p className="mb-1 truncate text-sm font-medium">{session?.user?.name}</p>
-          <p className="mb-4 truncate text-xs text-gray-400">{session?.user?.email}</p>
+      <div className="shrink-0">
+        <div className="px-6 py-4 text-sm leading-6 text-gray-200 border-t border-slate-700">
+          <p className="font-semibold">Edgar</p>
+          <p className="text-xs font-light text-gray-400 mb-2">edgar.asistente.medina@gmail.com</p>
           <SignOutButton />
         </div>
-      </aside>
-      
-      <main className="flex-1 overflow-y-auto p-8 min-w-0">
-        {children}
-      </main>
+      </div>
     </div>
+  );
+}
+
+export default function DashboardLayout({ children }) {
+  return (
+    <SidebarProvider>
+      <div className="h-screen flex">
+        <div className="flex w-64 flex-col fixed inset-y-0 z-50">
+          <Sidebar />
+        </div>
+        <main className="flex-1 pl-64">
+          {children}
+        </main>
+      </div>
+    </SidebarProvider>
   );
 }
