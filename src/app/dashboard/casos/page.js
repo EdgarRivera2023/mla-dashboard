@@ -2,22 +2,22 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useSidebar } from '../../../context/SidebarContext';
+import { useSidebar } from '@/context/SidebarContext';
 
-// Placeholder data for our stat cards
 const stats = [
     { name: 'Más Allá de Loss Mitigation', stat: '1,198' },
     { name: 'Bienes Raíces con Sensibilidad', stat: '243' },
     { name: 'Soluciones a Alquileres Defectuosos', stat: '52' },
-]
+];
 
 export default function CasosDashboardPage() {
     const { setSidebarView } = useSidebar();
 
-    // When this page loads, tell the sidebar to show the 'casosDashboard' view
     useEffect(() => {
+        // --- ADD THIS LOG ---
+        console.log("Casos Dashboard Page: Telling sidebar to change to 'casosDashboard'");
+        
         setSidebarView('casosDashboard');
-        // When we leave, set it back to main
         return () => setSidebarView('main');
     }, [setSidebarView]);
 

@@ -7,18 +7,16 @@ const SidebarContext = createContext();
 
 export const SidebarProvider = ({ children }) => {
   const [sidebarView, setSidebarView] = useState('main');
-  
-  // New state for managing filters on the Casos page
-  const [casosFilters, setCasosFilters] = useState([]);
   const [activeCasosFilter, setActiveCasosFilter] = useState(null);
+  const [activeCasosSubFilter, setActiveCasosSubFilter] = useState(null);
 
   const value = {
     sidebarView,
     setSidebarView,
-    casosFilters,
-    setCasosFilters,
     activeCasosFilter,
     setActiveCasosFilter,
+    activeCasosSubFilter,
+    setActiveCasosSubFilter,
   };
 
   return (

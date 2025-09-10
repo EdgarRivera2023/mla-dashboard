@@ -1,10 +1,11 @@
 // src/app/dashboard/layout.js
 'use client';
 
-import SignOutButton from '../../components/SignOutButton';
-import SidebarNav from '../../components/SidebarNav';
-import { SidebarProvider, useSidebar } from '../../context/SidebarContext';
-import CasosProyectosPanel from '../../components/CasosProyectosPanel'; // 1. Import new panel
+import SignOutButton from '@/components/SignOutButton';
+import SidebarNav from '@/components/SidebarNav';
+import { SidebarProvider, useSidebar } from '@/context/SidebarContext';
+import CasosProyectosPanel from '@/components/CasosProyectosPanel';
+import CasosDetailFilterPanel from '@/components/CasosDetailFilterPanel';
 
 const navigation = [
   { name: 'Panel', href: '/dashboard' },
@@ -22,7 +23,8 @@ function Sidebar() {
     switch(sidebarView) {
       case 'casosDashboard':
         return <CasosProyectosPanel />;
-      // We will add 'casosDetailFilters' later
+      case 'casosDetailFilters':
+        return <CasosDetailFilterPanel />;
       case 'main':
       default:
         return <SidebarNav links={navigation} />;
